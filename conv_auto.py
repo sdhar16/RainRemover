@@ -11,6 +11,7 @@ from torchvision.datasets import MNIST
 import os
 from rainy_dataloader import  RainyDataset
 import cv2
+from model import autoencoder
 
 os.makedirs('./dc_img',exist_ok=True)
 os.makedirs('./models',exist_ok=True)
@@ -34,38 +35,8 @@ img_transform = transforms.Compose([
 ])
 
 dataset_training = RainyDataset('rainy-image-dataset/training', transform=img_transform)
+total_train = len(dataset_training)
 dataloader_training = DataLoader(dataset_training, batch_size=batch_size, shuffle=True,num_workers=4)
-
-
-class autoencoder(nn.Module):
-    def __init__(self):
-        super(autoencoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(3, 32, 3, stride=1, padding=1),  # b, 16, 10, 10
-            nn.LeakyReLU(),
-            nn.Conv2d(32, 64, 3, stride=1, padding=1),  # b, 8, 3, 3
-            nn.LeakyReLU(),
-            nn.Conv2d(64, 128, 3, stride=1, padding=1),  # b, 8, 3, 3
-            nn.LeakyReLU(),
-            nn.Conv2d(128, 256, 3, stride=1, padding=1),  # b, 8, 3, 3
-            nn.LeakyReLU(),
-            )
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(256, 128, 3, stride=1,padding = 1),  # b, 16, 5, 5
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(128, 64, 3, stride=1, padding=1),  # b, 8, 15, 15
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(64, 32, 3, stride=1, padding=1),  # b, 8, 15, 15
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(32, 3, 3, stride=1, padding=1),  # b, 1, 28, 28
-            nn.Tanh()
-        )
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
-
 
 model = autoencoder().cuda()
 criterion = nn.MSELoss()
@@ -73,6 +44,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
                              weight_decay=1e-5)
 
 model.train()
+print("Training model, total samples %d"%total_train)
 
 for epoch in range(num_epochs):
     epoch_loss = 0
@@ -100,15 +72,18 @@ for epoch in range(num_epochs):
             rainy = to_img(rainy_img.cpu().data)
             save_image(torch.cat((pic,original,rainy)), './dc_img/epoch_%d/image_%d.png'%(epoch,index))
     print('epoch [{}/{}], loss:{:.4f}'
-          .format(epoch+1, num_epochs, epoch_loss/batch_size))
+          .format(epoch, num_epochs-1, epoch_loss/total_train))
     torch.save(model.state_dict(), './models/conv_autoencoder_%d.pth'%epoch)
 
 dataset_testing = RainyDataset('rainy-image-dataset/testing', transform=img_transform)
+total_test = len(dataset_testing)
 dataloader_testing = DataLoader(dataset_testing, batch_size=batch_size, shuffle=True,num_workers=4)
 
-model = autoencoder().cuda()
-model.load_state_dict(torch.load("./models/conv_autoencoder_9.pth"))
 
+# model = autoencoder().cuda()
+# model.load_state_dict(torch.load("./models/conv_autoencoder_9.pth"))
+
+print("Validating model, total samples %d"%total_test)
 model.eval()
 test_loss = 0
 
@@ -128,4 +103,4 @@ for index,data in enumerate(dataloader_testing):
     original = to_img(clean_img.cpu().data)
     rainy = to_img(rainy_img.cpu().data)
     save_image(torch.cat((pic,original,rainy)), './dc_img/testing/image_%d.png'%(index))
-print("Test loss",test_loss/batch_size)
+print("Test loss",test_loss/total_test)
