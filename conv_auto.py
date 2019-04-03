@@ -70,6 +70,15 @@ for epoch in range(num_epochs):
             original = to_img(clean_img.cpu().data)
             # print(original.shape)
             rainy = to_img(rainy_img.cpu().data)
+
+            #BGR to RGB
+
+            permute = [2, 1, 0] 
+
+            pic=pic[:, permute]
+            original=original[:, permute]
+            rainy=rainy[:, permute]
+
             save_image(torch.cat((pic,original,rainy)), './dc_img/epoch_%d/image_%d.png'%(epoch,index))
     print('epoch [{}/{}], loss:{:.4f}'
           .format(epoch, num_epochs-1, epoch_loss/total_train))
