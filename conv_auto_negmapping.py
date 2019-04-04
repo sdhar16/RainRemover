@@ -112,8 +112,10 @@ for index,data in enumerate(dataloader_testing):
     # ===================log========================
     residual = -output.cpu().data
     output = rainy_img + output
-    pic = to_img(output.cpu().data)
-    original = to_img(clean_img.cpu().data)
-    rainy = to_img(rainy_img.cpu().data)
+
+    permute = [2,1,0]
+    pic = to_img(output.cpu().data)[:,permute]
+    original = to_img(clean_img.cpu().data)[:,permute]
+    rainy = to_img(rainy_img.cpu().data)[:,permute]
     save_image(torch.cat((pic,residual,original,rainy)), './dc_img/testing/image_%d.png'%(index))
 print("Test loss",test_loss/total_test)

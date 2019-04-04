@@ -80,7 +80,7 @@ for epoch in range(num_epochs):
             rainy=rainy[:, permute]
 
             save_image(torch.cat((pic,original,rainy)), './dc_img/epoch_%d/image_%d.png'%(epoch,index))
-    print('epoch [{}/{}], loss:{:.4f}'
+    print('epoch [{}/{}], loss:{:.5f}'
           .format(epoch, num_epochs-1, epoch_loss/total_train))
     torch.save(model.state_dict(), './models/conv_autoencoder_%d.pth'%epoch)
 
@@ -108,8 +108,9 @@ for index,data in enumerate(dataloader_testing):
     loss = criterion(output, clean_img)
     test_loss += loss.data.item()
     # ===================log========================
-    pic = to_img(output.cpu().data)
-    original = to_img(clean_img.cpu().data)
-    rainy = to_img(rainy_img.cpu().data)
+    permute = [2, 1, 0]
+    pic = to_img(output.cpu().data)[:,permute]
+    original = to_img(clean_img.cpu().data)[:,permute]
+    rainy = to_img(rainy_img.cpu().data)[:,permute]
     save_image(torch.cat((pic,original,rainy)), './dc_img/testing/image_%d.png'%(index))
 print("Test loss",test_loss/total_test)
