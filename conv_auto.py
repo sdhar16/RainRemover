@@ -7,23 +7,20 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
-from torchvision.datasets import MNIST
 import os
 from rainy_dataloader import  RainyDataset
 import cv2
 from model import autoencoder
 from skimage.measure import compare_ssim
+from utils import *
 
-
-os.makedirs('./dc_img',exist_ok=True)
-os.makedirs('./models',exist_ok=True)
+image_dirs = "./dc_img"
+model_dirs = "./models"
+os.makedirs(image_dirs,exist_ok=True)
+os.makedirs(model_dirs,exist_ok=True)
 
 image_size = 128
-def to_img(x):
-    x = 0.5 * (x + 1)
-    x = x.clamp(0, 1)
-    x = x.view(x.size(0), 3, image_size, image_size)
-    return x
+
     
 num_epochs = 10
 batch_size = 16
@@ -51,7 +48,7 @@ print("Training model, total samples %d"%total_train)
 for epoch in range(num_epochs):
     epoch_loss = 0
     ssim = 0
-    os.makedirs('./dc_img/epoch_%d'%(epoch),exist_ok=True)
+    os.makedirs('%s/epoch_%d'%(image_dirs,epoch),exist_ok=True)
     for index,data in enumerate(dataloader_training):
         clean_img = data["clean"]
         rainy_img = data["rain"]
@@ -68,11 +65,11 @@ for epoch in range(num_epochs):
         optimizer.step()
         # ===================log========================
         if (index % 20)== 0:
-            pic = to_img(output.cpu().data)
+            pic = to_img(output.cpu().data,image_size)
             # print(pic.shape)
-            original = to_img(clean_img.cpu().data)
+            original = to_img(clean_img.cpu().data,image_size)
             # print(original.shape)
-            rainy = to_img(rainy_img.cpu().data)
+            rainy = to_img(rainy_img.cpu().data,image_size)
 
             #BGR to RGB
 
@@ -94,21 +91,22 @@ for epoch in range(num_epochs):
     print('epoch [{}/{}], loss:{:.5f}'
           .format(epoch, num_epochs-1, epoch_loss/total_train))
     print("SSIM: %f"%(ssim/total_train))
-    torch.save(model.state_dict(), './models/conv_autoencoder_%d.pth'%epoch)
+    torch.save(model.state_dict(), '%s/conv_autoencoder_%d.pth'%(model_dirs,epoch))
 
 dataset_testing = RainyDataset('rainy-image-dataset/testing', transform=img_transform)
 total_test = len(dataset_testing)
 dataloader_testing = DataLoader(dataset_testing, batch_size=batch_size, shuffle=True,num_workers=4)
 
 
-# model = autoencoder().cuda()
-# model.load_state_dict(torch.load("./models/conv_autoencoder_9.pth"))
+# model.load_state_dict(torch.load("%s/conv_autoencoder_9.pth"%model_dirs))
 
 print("Validating model, total samples %d"%total_test)
 model.eval()
 test_loss = 0
 
-os.makedirs('./dc_img/testing',exist_ok=True)
+os.makedirs('%s/testing'%image_dirs,exist_ok=True)
+
+
 ssim = 0
 for index,data in enumerate(dataloader_testing):
     clean_img = data["clean"]
@@ -122,10 +120,10 @@ for index,data in enumerate(dataloader_testing):
     test_loss += loss.data.item()
     # ===================log========================
     permute = [2, 1, 0]
-    pic = to_img(output.cpu().data)[:,permute]
-    original = to_img(clean_img.cpu().data)[:,permute]
-    rainy = to_img(rainy_img.cpu().data)[:,permute]
-    save_image(torch.cat((pic,original,rainy)), './dc_img/testing/image_%d.png'%(index))
+    pic = to_img(output.cpu().data,image_size)[:,permute]
+    original = to_img(clean_img.cpu().data,image_size)[:,permute]
+    rainy = to_img(rainy_img.cpu().data,image_size)[:,permute]
+    save_image(torch.cat((pic,original,rainy)), '%s/testing/image_%d.png'%(image_dirs,index))
 
     output = output.cpu().detach().numpy()
     clean_img = clean_img.cpu().detach().numpy()

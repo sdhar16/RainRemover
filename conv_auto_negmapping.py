@@ -7,12 +7,12 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
-from torchvision.datasets import MNIST
 import os
 from rainy_dataloader import  RainyDataset
 import cv2
 from model import autoencoder
 from skimage.measure import compare_ssim
+from utils import *
 
 img_dirs = "./dc_img_neg"
 model_dirs = "./models_neg"
@@ -20,13 +20,8 @@ os.makedirs(img_dirs,exist_ok=True)
 os.makedirs(model_dirs,exist_ok=True)
 
 image_size = 128
-def to_img(x):
-    x = 0.5 * (x + 1)
-    x = x.clamp(0, 1)
-    x = x.view(x.size(0), 3, image_size, image_size)
-    return x
     
-num_epochs = 10
+num_epochs = 0
 batch_size = 16
 learning_rate = 1e-3
 
@@ -71,11 +66,11 @@ for epoch in range(num_epochs):
         if (index % 20)== 0:
             residual = -output.cpu().data
             output = rainy_img + output
-            pic = to_img(output.cpu().data)
+            pic = to_img(output.cpu().data,image_size)
             # print(pic.shape)
-            original = to_img(clean_img.cpu().data)
+            original = to_img(clean_img.cpu().data,image_size)
             # print(original.shape)
-            rainy = to_img(rainy_img.cpu().data)
+            rainy = to_img(rainy_img.cpu().data,image_size)
 
             #BGR to RGB
 
@@ -103,9 +98,7 @@ dataset_testing = RainyDataset('rainy-image-dataset/testing', transform=img_tran
 total_test = len(dataset_testing)
 dataloader_testing = DataLoader(dataset_testing, batch_size=batch_size, shuffle=True,num_workers=4)
 
-
-# model = autoencoder().cuda()
-# model.load_state_dict(torch.load("./models/conv_autoencoder_9.pth"))
+model.load_state_dict(torch.load("%s/conv_autoencoder_9.pth"%model_dirs))
 
 print("Validating model, total samples %d"%total_test)
 model.eval()
@@ -128,9 +121,9 @@ for index,data in enumerate(dataloader_testing):
     output = rainy_img + output
 
     permute = [2,1,0]
-    pic = to_img(output.cpu().data)[:,permute]
-    original = to_img(clean_img.cpu().data)[:,permute]
-    rainy = to_img(rainy_img.cpu().data)[:,permute]
+    pic = to_img(output.cpu().data,image_size)[:,permute]
+    original = to_img(clean_img.cpu().data,image_size)[:,permute]
+    rainy = to_img(rainy_img.cpu().data,image_size)[:,permute]
     save_image(torch.cat((pic,residual,original,rainy)), '%s/testing/image_%d.png'%(img_dirs,index))
 
     output = output.cpu().detach().numpy()
