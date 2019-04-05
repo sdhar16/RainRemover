@@ -45,6 +45,7 @@ class RainyDataset(Dataset):
             grd = name[:name.find("_")]
             if(image_name_==grd+".jpg"):
                 image_clean = cv2.imread(image_name)
+                break
 
         # print(idx,self.files_clean[idx%14],self.files_rain[idx])
 
