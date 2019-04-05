@@ -21,7 +21,7 @@ os.makedirs(model_dirs,exist_ok=True)
 
 image_size = 128
     
-num_epochs = 0
+num_epochs = 10
 batch_size = 16
 learning_rate = 1e-3
 
@@ -98,7 +98,7 @@ dataset_testing = RainyDataset('rainy-image-dataset/testing', transform=img_tran
 total_test = len(dataset_testing)
 dataloader_testing = DataLoader(dataset_testing, batch_size=batch_size, shuffle=True,num_workers=4)
 
-model.load_state_dict(torch.load("%s/conv_autoencoder_9.pth"%model_dirs))
+# model.load_state_dict(torch.load("%s/conv_autoencoder_9.pth"%model_dirs))
 
 print("Validating model, total samples %d"%total_test)
 model.eval()
