@@ -12,9 +12,12 @@ import os
 from rainy_dataloader import  RainyDataset
 import cv2
 from model import autoencoder
+from skimage.measure import compare_ssim
 
-os.makedirs('./dc_img',exist_ok=True)
-os.makedirs('./models',exist_ok=True)
+img_dirs = "./dc_img_neg"
+model_dirs = "./models_neg"
+os.makedirs(img_dirs,exist_ok=True)
+os.makedirs(model_dirs,exist_ok=True)
 
 image_size = 128
 def to_img(x):
@@ -48,7 +51,8 @@ print("Training model, total samples %d"%total_train)
 
 for epoch in range(num_epochs):
     epoch_loss = 0
-    os.makedirs('./dc_img/epoch_%d'%(epoch),exist_ok=True)
+    os.makedirs('%s/epoch_%d'%(img_dirs,epoch),exist_ok=True)
+    ssim = 0
     for index,data in enumerate(dataloader_training):
         clean_img = data["clean"]
         rainy_img = data["rain"]
@@ -81,10 +85,19 @@ for epoch in range(num_epochs):
             original=original[:, permute]
             rainy=rainy[:, permute]
 
-            save_image(torch.cat((pic,residual,original,rainy)), './dc_img/epoch_%d/image_%d.png'%(epoch,index))
+            save_image(torch.cat((pic,residual,original,rainy)), '%s/epoch_%d/image_%d.png'%(img_dirs,epoch,index))
+        
+        output = rainy_img + output
+        clean_img = clean_img.cpu().detach().numpy()
+        output = output.cpu().detach().numpy()
+
+        for i in range(batch_size):
+            ssim += compare_ssim(clean_img[i].transpose(1,2,0),output[i].transpose(1,2,0),data_range = output[i].max() - output[i].min(),multichannel = True)
+
     print('epoch [{}/{}], loss:{:.4f}'
           .format(epoch, num_epochs-1, epoch_loss/total_train))
-    torch.save(model.state_dict(), './models/conv_autoencoder_%d.pth'%epoch)
+    print("SSIM: %f"%(ssim/total_train))
+    torch.save(model.state_dict(), '%s/conv_autoencoder_%d.pth'%(model_dirs,epoch))
 
 dataset_testing = RainyDataset('rainy-image-dataset/testing', transform=img_transform)
 total_test = len(dataset_testing)
@@ -98,7 +111,8 @@ print("Validating model, total samples %d"%total_test)
 model.eval()
 test_loss = 0
 
-os.makedirs('./dc_img/testing',exist_ok=True)
+os.makedirs('%s/testing'%img_dirs,exist_ok=True)
+ssim = 0
 for index,data in enumerate(dataloader_testing):
     clean_img = data["clean"]
     rainy_img = data["rain"]
@@ -117,5 +131,15 @@ for index,data in enumerate(dataloader_testing):
     pic = to_img(output.cpu().data)[:,permute]
     original = to_img(clean_img.cpu().data)[:,permute]
     rainy = to_img(rainy_img.cpu().data)[:,permute]
-    save_image(torch.cat((pic,residual,original,rainy)), './dc_img/testing/image_%d.png'%(index))
+    save_image(torch.cat((pic,residual,original,rainy)), '%s/testing/image_%d.png'%(img_dirs,index))
+
+    output = output.cpu().detach().numpy()
+    clean_img = clean_img.cpu().detach().numpy()
+
+    for i in range(batch_size):
+        ssim += compare_ssim(clean_img[i].transpose(1,2,0),output[i].transpose(1,2,0),data_range = output[i].max() - output[i].min(),multichannel = True)
+
+    
+    
 print("Test loss",test_loss/total_test)
+print("SSIM: %f"%(ssim/total_test))
