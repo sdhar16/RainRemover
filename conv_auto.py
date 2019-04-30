@@ -19,7 +19,7 @@ model_dirs = "./models"
 os.makedirs(image_dirs,exist_ok=True)
 os.makedirs(model_dirs,exist_ok=True)
 
-image_size = 128
+image_size = 64
 
     
 num_epochs = 10
