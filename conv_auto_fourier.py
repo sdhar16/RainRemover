@@ -8,20 +8,20 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
 import os
-from rainy_dataloader import  RainyDataset
+from rainy_dataloader_fourier import  RainyDataset
 import cv2
 from model import autoencoder
 from skimage.measure import compare_ssim
 from utils import *
 
-img_dirs = "./dc_img_neg"
-model_dirs = "./models_neg"
+img_dirs = "./dc_img_fourier"
+model_dirs = "./models_fourier"
 os.makedirs(img_dirs,exist_ok=True)
 os.makedirs(model_dirs,exist_ok=True)
 
 image_size = 64
     
-num_epochs = 20
+num_epochs = 10
 batch_size = 4
 learning_rate = 1e-3
 
@@ -51,11 +51,14 @@ for epoch in range(num_epochs):
     for index,data in enumerate(dataloader_training):
         clean_img = data["clean"]
         rainy_img = data["rain"]
-
+        f_rain = data["fourier_rain"]
+        
         clean_img = Variable(clean_img).cuda()
         rainy_img = Variable(rainy_img).cuda()
+        f_rain = Variable(f_rain).float().cuda()
+
         # ===================forward=====================
-        output = model(rainy_img)
+        output = model(f_rain)
         loss = criterion(output, clean_img - rainy_img)
         epoch_loss += loss.data.item()
         # ===================backward====================
@@ -66,22 +69,27 @@ for epoch in range(num_epochs):
         if (index % 20)== 0:
             residual = -output.cpu().data
             output = rainy_img + output
+            
+            # pic = ((rainy_img+1)*0.5 + (output+1)*0.5).clamp(0,1).cpu().data
+
             pic = to_img(output.cpu().data,image_size)
-            # print(pic.shape)
+
             original = to_img(clean_img.cpu().data,image_size)
-            # print(original.shape)
+
             rainy = to_img(rainy_img.cpu().data,image_size)
+            frain = to_img(f_rain.cpu().data,image_size)
+            residual = to_img(-residual.cpu().data,image_size)
 
             #BGR to RGB
 
             permute = [2, 1, 0] 
 
+            # output=output[:, permute]
             pic=pic[:, permute]
             original=original[:, permute]
             rainy=rainy[:, permute]
 
-            save_image(torch.cat((pic,residual,original,rainy)), '%s/epoch_%d/image_%d.png'%(img_dirs,epoch,index))
-        
+            save_image(torch.cat((pic,residual,original,rainy,frain)), '%s/epoch_%d/image_%d.jpg'%(img_dirs,epoch,index))
         
         else:
             output = rainy_img + output
@@ -111,22 +119,26 @@ ssim = 0
 for index,data in enumerate(dataloader_testing):
     clean_img = data["clean"]
     rainy_img = data["rain"]
+    f_rain = data["fourier_rain"]
+
 
     clean_img = Variable(clean_img).cuda()
     rainy_img = Variable(rainy_img).cuda()
+    f_rain = Variable(f_rain).float().cuda()
     # ===================forward=====================
-    output = model(rainy_img)
+    output = model(f_rain)
     loss = criterion(output, clean_img - rainy_img)
     test_loss += loss.data.item()
     # ===================log========================
     residual = -output.cpu().data
+    # print(residual.shape)
     output = rainy_img + output
 
     permute = [2,1,0]
     pic = to_img(output.cpu().data,image_size)[:,permute]
     original = to_img(clean_img.cpu().data,image_size)[:,permute]
     rainy = to_img(rainy_img.cpu().data,image_size)[:,permute]
-    save_image(torch.cat((pic,residual,original,rainy)), '%s/testing/image_%d.png'%(img_dirs,index))
+    save_image(torch.cat((pic,residual,original,rainy)), '%s/testing/image_%d.jpg'%(img_dirs,index))
 
     output = output.cpu().detach().numpy()
     clean_img = clean_img.cpu().detach().numpy()
@@ -134,7 +146,6 @@ for index,data in enumerate(dataloader_testing):
     for i in range(batch_size):
         ssim += compare_ssim(clean_img[i].transpose(1,2,0),output[i].transpose(1,2,0),data_range = output[i].max() - output[i].min(),multichannel = True)
 
-    
     
 print("Test loss",test_loss/total_test)
 print("SSIM: %f"%(ssim/total_test))
